@@ -159,7 +159,13 @@ public:
     }
   }
 
-  void stopping(const ros::Time& /*time*/) {}
+  void stopping(const ros::Time& /*time*/) {
+    //Zero effort commands
+    for (unsigned int i = 0; i < joint_handles_ptr_->size(); ++i)
+    {
+      (*joint_handles_ptr_)[i].setCommand(0.0);
+    }
+  }
 
   void updateCommand(const ros::Time&     /*time*/,
                      const ros::Duration& period,
