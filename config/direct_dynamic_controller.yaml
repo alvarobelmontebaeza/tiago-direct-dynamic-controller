@@ -11,7 +11,7 @@ arm_dynamic_controller:
 
   Kp: 100.0 #10000
   Kv: 20.0  #1000
-  controller_type: "PD+"
+  controller_type: "Computed_torque"
   constraints:
     goal_time: 0.6
     stopped_velocity_tolerance: 5.0
