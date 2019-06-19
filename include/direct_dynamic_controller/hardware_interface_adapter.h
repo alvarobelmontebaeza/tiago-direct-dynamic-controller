@@ -458,8 +458,112 @@ public:
       ros::spinOnce();   
 
       return;
+    }
+    else if(controller_type.compare("Visual_servoing")==0)
+    {
+      dynamics.JntToGravity(current.q,G);
+      dynamics.JntToCoriolis(current.q,current.qdot,C);
+      dynamics.JntToMass(current.q,M);
 
+      // KDL object for computing forward kinematics and obtain end-effector position, velocity and acceleration
+      KDL::ChainFkSolverPos_recursive fk_solver = KDL::ChainFkSolverPos_recursive(chain);
 
+      // Compute forward kinematics for current and desired states
+      fk_solver.JntToCart(current.q, current_cart);
+
+      ////////////////////////////////////////////////////////////////////
+      //TODO: Get desired cartesian position from Aruco marker detection//
+      ////////////////////////////////////////////////////////////////////
+
+      // Compute jacobians
+      // KDL object for obtaining jacobian matrix
+      KDL::ChainJntToJacSolver jacob_solver = KDL::ChainJntToJacSolver(chain);
+      J_prev = J;
+      jacob_solver.JntToJac(current.q,J);
+
+      // Obtain J derivative and pseudoinverse
+      Jdot.data = J.data - J_prev.data; // J difference between time steps
+      J_pinv = J.data.transpose();// * (J.data * J.data.transpose()).inverse(); // Compute pseudo-inverse as J+ = Jt*(J*Jt)^-1
+      // Compute velocity
+      current_vel = J.data * current.qdot.data;
+      desired_vel = J.data * desired.qdot.data;
+      desired_acc = Jdot.data * desired.qdot.data + J.data * desired.qdotdot.data;
+
+      /* -------- COMPUTE CARTESIAN ERROR -------------*/
+
+      // Position error
+      error_cart.p = desired_cart.p - current_cart.p;
+
+      // Orientation error
+      double w, x, y, z, wd, xd, yd, zd = 0.0;
+      // Desired orientation
+      desired_cart.M.GetQuaternion(xd, yd, zd, wd);
+      Eigen::Quaterniond desired_orientation = Eigen::Quaterniond(wd, xd, yd, zd);
+      // Current orientation
+      current_cart.M.GetQuaternion(x, y, z, w);
+      Eigen::Quaterniond current_orientation = Eigen::Quaterniond(w, x, y, z);
+      // Orientation error
+      Eigen::Quaterniond error_orientation = desired_orientation * (current_orientation.inverse());
+      error_orientation.normalize();
+      
+      // Store position error in an Eigen::Vector
+      pos_error(0) = error_cart.p.x();
+      pos_error(1) = error_cart.p.y();
+      pos_error(2) = error_cart.p.z();
+      pos_error(3) = error_orientation.x() * error_orientation.w();
+      pos_error(4) = error_orientation.y() * error_orientation.w();
+      pos_error(5) = error_orientation.z() * error_orientation.w();
+
+      // Velocity error
+      vel_error = desired_vel - current_vel;
+
+      // Optimal controller terms
+      Eigen::VectorXd F = - C.data - G.data;
+      Eigen::MatrixXd A = J.data;
+      Eigen::VectorXd b = desired_acc + Kv*vel_error + Kp*pos_error - Jdot.data * current.qdot.data;
+      Eigen::MatrixXd M_inv = M.data.inverse();
+      
+      // WEIGHT MATRIX:  This is the key term in optimal control. The optimal controller effect will depend on this value
+      //Eigen::MatrixXd W = Eigen::MatrixXd::Identity(7,7);
+      Eigen::MatrixXd W = M_inv;
+      //Eigen::MatrixXd W = (M.data * M.data).inverse();
+      /*Eigen::MatrixXd W = Eigen::MatrixXd::Zero(7,7);
+      W.diagonal() << 1.0, 3.0, 0.5, 1.0, 1.0, 1.0, 1.0;//0.025, 0.025, 0.0455, 0.0455, 0.333, 0.2, 0.2;
+
+      W = W * M_inv;*/
+
+      Eigen::MatrixXd W_inv_sqrt = W.sqrt().inverse();
+
+      // Control law
+      tau.data = W_inv_sqrt * (A * M_inv * W_inv_sqrt).transpose() * (b - (A * M_inv * F));
+
+      for (unsigned int i = 0; i < 4; ++i)
+      {
+        // Effort command sending
+        const double command = tau(i)/(motor_torque_constant[i] * reduction_ratio[i]);
+        if(!std::isnan(command))
+          (*joint_handles_ptr_)[i].setCommand(command);
+      }
+      
+      // PUBLISH ERROR AND TORQUE FOR CARTESIAN CONTROLLER
+      std_msgs::Float64MultiArray error_msg, torque_msg;
+      error_msg.data.resize(3);
+      torque_msg.data.resize(4);
+
+      for(int i=0;i<4;i++)
+      {
+        if(i<3)
+          error_msg.data[i] = error_cart.p.data[i];
+
+        torque_msg.data[i] = current_torque[i] * (motor_torque_constant[i] * reduction_ratio[i]);
+      }
+
+      error_pub.publish(error_msg);
+      torque_pub.publish(torque_msg);
+
+      ros::spinOnce();   
+
+      return;
     }
     else
       ROS_ERROR("Invalid controller type for effort_controllers/DirectDynamicController");
