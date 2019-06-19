@@ -90,18 +90,26 @@ public:
     }
 
     // Obtain proportional and derivative gains stated  at the YAML config file
-    if (!controller_nh_ptr_->getParam("Kp", Kp)){
+    double kp_default, kv_default = 0.0;
+
+    if (!controller_nh_ptr_->getParam("Kp", kp_default)){
       ROS_ERROR("Could not load proportional gain. Default value Kp=500");
     }
 
-    if (!controller_nh_ptr_->getParam("Kv", Kv)){
+    if (!controller_nh_ptr_->getParam("Kv", kv_default)){
       ROS_ERROR("Could not load derivative gain. Default value Kv=50");
     }
 
-    // Init ddynamic_reconfigure to tune gains
-    ddr.reset(new ddynamic_reconfigure::DDynamicReconfigure(controller_nh)); 
-    ddr->RegisterVariable(&Kp, controller_nh_ptr_->getNamespace() + "/Kp", 0, 6000);
-    ddr->RegisterVariable(&Kv, controller_nh_ptr_->getNamespace() + "/Kv", 0, 600);
+    // Init ddynamic_reconfigure to tune gains and set default values
+    ddr.reset(new ddynamic_reconfigure::DDynamicReconfigure(controller_nh));
+    for(int i=0; i<joint_handles_ptr_->size();i++)
+    {
+      Kp_vec[i] = kp_default;
+      Kv_vec[i] = kv_default;
+      ddr->RegisterVariable(&Kp_vec[i], controller_nh_ptr_->getNamespace() + "/Kp/" + joint_names_[i], 0, 6000);
+      ddr->RegisterVariable(&Kv_vec[i], controller_nh_ptr_->getNamespace() + "/Kv/" + joint_names_[i], 0, 600);
+    }
+    
     ddr->publishServicesTopics();
 
     // Obtain required controller type. Default: PD_Gravity_Compensation
@@ -191,7 +199,11 @@ public:
       desired.qdotdot(i) = desired_state.acceleration[i];   
 
       error.q(i) = state_error.position[i];
-      error.qdot(i) = state_error.velocity[i];     
+      error.qdot(i) = state_error.velocity[i];
+
+      // Set gain matrixs
+      Kp(i,i) = Kp_vec[i];
+      Kv(i,i) = Kv_vec[i];
     }
 
     // KDL object for calculate dynamic parameters
@@ -598,8 +610,10 @@ private:
 
   //Gains - to be updated via rosparam and ddynamic_reconfigure
   ddynamic_reconfigure::DDynamicReconfigurePtr ddr;
-  double Kp = 2000.0;
-  double Kv = 20.0;
+  double Kp_vec[JOINTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  double Kv_vec[JOINTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  Eigen::MatrixXd Kp = Eigen::MatrixXd::Zero(JOINTS,JOINTS);
+  Eigen::MatrixXd Kv = Eigen::MatrixXd::Zero(JOINTS,JOINTS);
 
   // Motor parameters
   double motor_torque_constant[JOINTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
