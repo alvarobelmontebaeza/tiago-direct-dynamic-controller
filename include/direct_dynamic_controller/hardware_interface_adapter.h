@@ -225,7 +225,7 @@ public:
       dynamics.JntToMass(desired.q,M);
 
       // Obtain torque needed for each joint
-      tau.data = M.data*desired.qdotdot.data + C.data + G.data;
+      tau.data = M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
       for (unsigned int i = 0; i < n_joints; ++i)
       {
         // Effort command sending
@@ -242,7 +242,7 @@ public:
       dynamics.JntToMass(desired.q,M);
 
       // Obtain torque needed for each joint
-      tau.data = error.q.data*Kp + error.qdot.data * Kv + M.data*desired.qdotdot.data + C.data + G.data;
+      tau.data = error.q.data*Kp + error.qdot.data * Kv + M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
       for (unsigned int i = 0; i < n_joints; ++i)
       {
         // Effort command sending
@@ -259,7 +259,7 @@ public:
       dynamics.JntToMass(current.q,M);
 
       // Obtain torque needed for each joint
-      tau.data = error.q.data*Kp + error.qdot.data * Kv + M.data*desired.qdotdot.data + C.data + G.data;
+      tau.data = error.q.data*Kp + error.qdot.data * Kv + M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
       for (unsigned int i = 0; i < n_joints; ++i)
       {
         // Effort command sending
@@ -342,7 +342,7 @@ public:
       vel_error = desired_vel - current_vel;
 
       // EFFORT COMMAND CALCULUS
-      tau.data = M.data * J_pinv * (desired_acc + Kp * pos_error + Kv * vel_error - Jdot.data * current.qdot.data) + C.data + G.data;
+      tau.data = M.data * J_pinv * (desired_acc + Kp * pos_error + Kv * vel_error - Jdot.data * current.qdot.data) + C.data + G.data - F*current.qdot.data;
 
       // Send each effort command to robot joints
       for (unsigned int i = 0; i < n_joints; ++i)
@@ -448,7 +448,7 @@ public:
       Eigen::MatrixXd W_inv_sqrt = W.sqrt().inverse();
 
       // Control law
-      tau.data = W_inv_sqrt * (A * M_inv * W_inv_sqrt).transpose() * (b - (A * M_inv * F));
+      tau.data = W_inv_sqrt * (A * M_inv * W_inv_sqrt).transpose() * (b - (A * M_inv * F)) - F*current.qdot.data;
 
       for (unsigned int i = 0; i < 4; ++i)
       {
