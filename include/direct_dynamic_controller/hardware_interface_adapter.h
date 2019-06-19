@@ -100,14 +100,20 @@ public:
       ROS_ERROR("Could not load derivative gain. Default value Kv=50");
     }
 
+    // Friction gain control
+    double F_default = 0.0;
+
     // Init ddynamic_reconfigure to tune gains and set default values
     ddr.reset(new ddynamic_reconfigure::DDynamicReconfigure(controller_nh));
     for(int i=0; i<joint_handles_ptr_->size();i++)
     {
       Kp_vec[i] = kp_default;
       Kv_vec[i] = kv_default;
+      F_vec[i] = F_default;
       ddr->RegisterVariable(&Kp_vec[i], controller_nh_ptr_->getNamespace() + "/Kp/" + joint_names_[i], 0, 6000);
       ddr->RegisterVariable(&Kv_vec[i], controller_nh_ptr_->getNamespace() + "/Kv/" + joint_names_[i], 0, 600);
+      ddr->RegisterVariable(&F_vec[i], controller_nh_ptr_->getNamespace() + "/Friction/" + joint_names_[i], -10, 10);
+
     }
     
     ddr->publishServicesTopics();
@@ -204,6 +210,7 @@ public:
       // Set gain matrixs
       Kp(i,i) = Kp_vec[i];
       Kv(i,i) = Kv_vec[i];
+      F(i,i) = F_vec[i];
     }
 
     // KDL object for calculate dynamic parameters
@@ -268,7 +275,7 @@ public:
       dynamics.JntToCoriolis(current.q,current.qdot,C);
       dynamics.JntToMass(current.q,M);
 
-      tau.data = M.data*(desired.qdotdot.data + Kp*error.q.data + Kv*error.qdot.data) + C.data + G.data;
+      tau.data = M.data*(desired.qdotdot.data + Kp*error.q.data + Kv*error.qdot.data) + C.data + G.data - F*current.qdot.data;
       for (unsigned int i = 0; i < n_joints; ++i)
       {
         // Effort command sending
@@ -614,6 +621,10 @@ private:
   double Kv_vec[JOINTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
   Eigen::MatrixXd Kp = Eigen::MatrixXd::Zero(JOINTS,JOINTS);
   Eigen::MatrixXd Kv = Eigen::MatrixXd::Zero(JOINTS,JOINTS);
+  
+  // Friction compensation
+  double F_vec[JOINTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  Eigen::MatrixXd F = Eigen::MatrixXd::Zero(JOINTS, JOINTS);
 
   // Motor parameters
   double motor_torque_constant[JOINTS] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
