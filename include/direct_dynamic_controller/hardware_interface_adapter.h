@@ -344,7 +344,7 @@ public:
         if(i<3)
           error_msg.data[i] = error_cart.p.data[i];
 
-        torque_msg.data[i] = current_torque[i];
+        torque_msg.data[i] = current_torque[i] * (motor_torque_constant[i] * reduction_ratio[i]);
       }
 
       error_pub.publish(error_msg);
@@ -449,7 +449,7 @@ public:
         if(i<3)
           error_msg.data[i] = error_cart.p.data[i];
 
-        torque_msg.data[i] = current_torque[i];
+        torque_msg.data[i] = current_torque[i] * (motor_torque_constant[i] * reduction_ratio[i]);
       }
 
       error_pub.publish(error_msg);
@@ -472,7 +472,7 @@ public:
     for(int i=0;i<4;i++)
     {
       error_msg.data[i] = error.q(i);
-      torque_msg.data[i] = current_torque[i];
+      torque_msg.data[i] = current_torque[i] * (motor_torque_constant[i] * reduction_ratio[i]);
     }
 
     error_pub.publish(error_msg);
