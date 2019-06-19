@@ -242,7 +242,7 @@ public:
       dynamics.JntToMass(desired.q,M);
 
       // Obtain torque needed for each joint
-      tau.data = error.q.data*Kp + error.qdot.data * Kv + M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
+      tau.data = Kp*error.q.data + Kv*error.qdot.data + M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
       for (unsigned int i = 0; i < n_joints; ++i)
       {
         // Effort command sending
@@ -259,7 +259,7 @@ public:
       dynamics.JntToMass(current.q,M);
 
       // Obtain torque needed for each joint
-      tau.data = error.q.data*Kp + error.qdot.data * Kv + M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
+      tau.data = Kp * error.q.data +  Kv * error.qdot.data + M.data*desired.qdotdot.data + C.data + G.data - F*current.qdot.data;
       for (unsigned int i = 0; i < n_joints; ++i)
       {
         // Effort command sending
