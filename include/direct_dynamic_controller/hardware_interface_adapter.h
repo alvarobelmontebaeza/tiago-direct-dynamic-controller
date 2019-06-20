@@ -494,7 +494,7 @@ public:
           (*joint_handles_ptr_)[i].setCommand(command);
       }
       
-      // PUBLISH ERROR AND TORQUE FOR CARTESIAN CONTROLLER
+      /* PUBLISH ERROR AND TORQUE FOR CARTESIAN CONTROLLER
       std_msgs::Float64MultiArray error_msg, torque_msg;
       error_msg.data.resize(3);
       torque_msg.data.resize(4);
@@ -512,7 +512,7 @@ public:
 
       ros::spinOnce();   
 
-      return;
+      return;*/
     }
     else
       ROS_ERROR("Invalid controller type for effort_controllers/DirectDynamicController");
